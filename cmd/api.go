@@ -1,7 +1,7 @@
 package main
 
 import (
-	"log"
+	"log/slog"
 	"net/http"
 	"time"
 
@@ -9,7 +9,9 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/yogtanko/go-kios/internal/auth"
 	myMiddleware "github.com/yogtanko/go-kios/internal/middleware"
+	"github.com/yogtanko/go-kios/internal/postgress"
 	"github.com/yogtanko/go-kios/internal/products"
+	"github.com/yogtanko/go-kios/pkg/config"
 )
 
 func (app *application) mount() http.Handler {
@@ -25,14 +27,19 @@ func (app *application) mount() http.Handler {
 	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("all good"))
 	})
-
+	var err error
+	app.db, err = postgress.NewDatabase(&app.config.Db.DBUrl)
+	if err != nil {
+		slog.Error("Gagal create koneksi ke DB", "error", err.Error())
+		return nil
+	}
 	// middleware
-	myMiddleware.Init(app.config.jwtSecret)
+	myMiddleware.Init(app.config.JwtSecret)
 	// Services
-	productService := products.NewService()
+	productService := products.NewService(app.db)
 
 	// Handlers
-	authHandler := auth.NewHandler(app.config.jwtSecret)
+	authHandler := auth.NewHandler(app.config.JwtSecret)
 	productHandler := products.NewHandler(productService)
 
 	r.Post("/login", authHandler.Login)
@@ -47,26 +54,17 @@ func (app *application) mount() http.Handler {
 
 func (app *application) run(h http.Handler) error {
 	srv := &http.Server{
-		Addr:         app.config.addr,
+		Addr:         app.config.Addr,
 		Handler:      h,
 		WriteTimeout: time.Second * 30,
 		ReadTimeout:  time.Second * 10,
 		IdleTimeout:  time.Minute,
 	}
-	log.Printf("server has started at addr %s", app.config.addr)
+	slog.Info("server has started at addr " + app.config.Addr)
 	return srv.ListenAndServe()
 }
 
 type application struct {
-	config config
-}
-
-type config struct {
-	addr      string
-	db        dbConfig
-	jwtSecret []byte
-}
-
-type dbConfig struct {
-	dsn string
+	config *config.Config
+	db     *postgress.Database
 }

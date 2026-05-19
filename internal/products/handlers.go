@@ -18,7 +18,7 @@ func NewHandler(service Service) *handler {
 }
 
 func (h *handler) ListProducts(w http.ResponseWriter, r *http.Request) {
-	products, err := h.service.ListProducts(r.Context(), r.RemoteAddr)
+	products, err := h.service.ListProducts(r.Context())
 	if err != nil {
 		slog.Error("Terjadi Kesalahan", "error", err)
 		json.Write(w, http.StatusInternalServerError, map[string]string{"message": "Terjadi Kesalahan"})
