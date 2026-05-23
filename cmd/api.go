@@ -48,7 +48,6 @@ func (app *application) mount() http.Handler {
 		r.Use(myMiddleware.Authenticator)
 		r.Get("/products", productHandler.ListProducts)
 	})
-
 	return r
 }
 
